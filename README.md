@@ -14,10 +14,6 @@ This skill is for partners who want to earn commission by referring merchants to
 - **Node.js**, only for the `npx` install method below; not needed if you copy the
   skill manually. Get it at [nodejs.org](https://nodejs.org).
 
-> Not comfortable with a terminal? You can skip the commands entirely. Open your AI
-> assistant, give it the skill (paste the link to `SKILL.md`), and ask it to build
-> the form for you.
-
 **1. Get the skill**
 
 *Option A: `npx skills` (recommended)*
@@ -40,7 +36,12 @@ npx skills add arpit-dapton/epdc-skill
 
 **2. Point your agent at it**
 
-Tell your AI assistant to build the form from `SKILL.md`. A few examples:
+First, open your AI assistant in the right folder: go to the folder where the skill was
+installed, or, if you downloaded it manually, the unzipped folder. The paths in the
+examples below are relative to it, so the assistant needs to be started from there to
+find `SKILL.md`.
+
+Then tell your AI assistant to build the form from `SKILL.md`. A few examples:
 
 *Claude:*
 ```
