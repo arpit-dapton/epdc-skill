@@ -29,7 +29,7 @@ This skill is for partners who want to earn commission by referring merchants to
 > isn't found after installing, close and reopen the terminal.
 
 ```bash
-npx skills add daptondev3/EPDC-Skills
+npx skills add arpit-dapton/epdc-skill
 ```
 
 *Option B: download it (no terminal needed)*
