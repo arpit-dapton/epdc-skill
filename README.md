@@ -1,16 +1,6 @@
-# EPDC Skills
+# EPD Commerce
 
-This skill is for anyone who wants a signup form on a page **they control** - a blog,
-partner landing page, or marketing microsite, that captures leads for EPD Commerce. Give it to your AI agent and it builds a first-touch signup form
-(first name, last name, company, email) that creates a lead in EasyPayDirect, then hands the
-visitor to EPD Commerce to finish account creation with email OTP and a password. Registered
-EasyPayDirect partners can add their partner key so every signup the form drives is
-attributed to them for commission.
-
-Every generated form also forwards UTM attribution (`utm_source`, `utm_medium`,
-`utm_campaign`, `utm_term`, `utm_content`) read from the visitor's own page URL.
-Each one is passed through only when the URL actually carries it - the form never
-adds default values.
+This skill is for partners who want to earn commission by referring merchants to Easy Pay Direct. Give it to your AI coding assistant and it builds a merchant signup form (first name, last name, company, email) for a page you control - a blog, partner landing page, or marketing microsite - that you embed in whichever of three ways fits your site (full form, redirect handoff, or email-based signup). Every merchant who signs up through your form is attributed to you via your partner key, so the signups you drive earn you a monthly residual commission for the lifetime of their account.
 
 ## Installation
 
