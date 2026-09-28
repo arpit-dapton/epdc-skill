@@ -158,7 +158,7 @@ const checks = [
         : null,
   },
   {
-    // Client-side files read the five params off the page URL.
+    // Client-side files read the UTM and click-ID params off the page URL.
     name: 'UTM block reads the page URL',
     applies: (src) => /URLSearchParams/.test(src),
     run: (src) => {
@@ -168,12 +168,16 @@ const checks = [
         'utm_campaign',
         'utm_term',
         'utm_content',
+        'gclid',
+        'gbraid',
+        'wbraid',
+        'fbclid',
       ].filter((t) => !src.includes(t));
       return missing.length ? `UTM block edited, missing: ${missing.join(', ')}` : null;
     },
   },
   {
-    // Nothing is invented: a UTM value is forwarded only when the URL carried it.
+    // Nothing is invented: a UTM or click-ID value is forwarded only when the URL carried it.
     name: 'UTM values are sent only when present',
     applies: (src) => /utm(Source|Medium|Campaign|Term|Content)/.test(src),
     run: (src) => {
@@ -183,6 +187,10 @@ const checks = [
         'utmCampaign',
         'utmTerm',
         'utmContent',
+        'gclid',
+        'gbraid',
+        'wbraid',
+        'fbclid',
       ].filter((k) => !src.includes(k));
       if (missing.length) return `UTM block edited, missing: ${missing.join(', ')}`;
 
@@ -190,7 +198,7 @@ const checks = [
       // `|| ''` is fine: that is the "no value" case.
       const hardcoded = src
         .split('\n')
-        .find((line) => /utm/i.test(line) && /(\|\||\?\?)\s*['"][^'"]+['"]/.test(line));
+        .find((line) => /utm|gclid|gbraid|wbraid|fbclid/i.test(line) && /(\|\||\?\?)\s*['"][^'"]+['"]/.test(line));
       return hardcoded
         ? `hardcoded UTM fallback: ${hardcoded.trim()} - send nothing when the URL has no value`
         : null;

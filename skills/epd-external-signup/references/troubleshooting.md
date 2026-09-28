@@ -23,7 +23,7 @@ Check the browser console and network tab first.
 | An extra property in the body | The API whitelists properties. Build the body from named fields, never spread a whole `FormData`. If the host page's form has its own hidden inputs, a spread leaks them in |
 | Field names were renamed | They must be exactly `firstName`, `lastName`, `companyName`, `email` |
 | A value is empty or whitespace | The templates trim before sending. If you edited that out, `"  "` passes the browser's `minlength` and fails server-side |
-| A `utm*` value over 100 chars | The templates truncate to 100. Do not remove that |
+| A `utm*` or click-ID (`gclid`, `gbraid`, `wbraid`, `fbclid`) value over 100 chars | The templates truncate to 100. Do not remove that |
 | A name with a letter outside Western European Latin (`Ł`, `ř`, `ễ`, non-Latin scripts) | The server only accepts `A-Z`, `a-z`, and `À`-`ÿ`. The form shows its "can only contain letters..." message on the field. Nothing to fix in the form. See "Known gaps" in `api.md` |
 | Company name under 3 chars | `companyName` has a 3-character minimum. "3M" is rejected. Known gap, see `api.md` |
 

@@ -163,7 +163,7 @@ export function EpdSignupForm() {
 
     if (PARTNER_KEY.trim()) body.partnerKey = PARTNER_KEY.trim();
 
-    // UTM attribution. Read-only: never written back to the URL or history,
+    // UTM and ad click-ID attribution. Read-only: never written back to the URL or history,
     // never a form field. Each value is sent only when the page URL carries it.
     // No defaults: a param the URL does not carry is not sent.
     const params = new URLSearchParams(window.location.search);
@@ -174,6 +174,10 @@ export function EpdSignupForm() {
       ['utmCampaign', 'utm_campaign'],
       ['utmTerm', 'utm_term'],
       ['utmContent', 'utm_content'],
+      ['gclid', 'gclid'],
+      ['gbraid', 'gbraid'],
+      ['wbraid', 'wbraid'],
+      ['fbclid', 'fbclid'],
     ] as const) {
       const value = utm(param);
       if (value) body[bodyKey] = value;

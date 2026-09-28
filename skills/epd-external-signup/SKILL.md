@@ -145,11 +145,13 @@ This is a dev endpoint. After generating, tell the user:
 Already handled by every template. Do not ask the user about it.
 
 Each template reads `utm_source`, `utm_medium`, `utm_campaign`, `utm_term`, and
-`utm_content` from its own page URL and sends them with the signup. All five are
+`utm_content` from its own page URL and sends them with the signup, along with the
+ad click IDs `gclid`, `gbraid`, `wbraid` (Google Ads) and `fbclid` (Meta). A URL
+like `?gclid=123&gbraid=456&wbraid=789&fbclid=009` is picked up as-is. All nine are
 treated the same way: sent when the URL carries them, omitted when it does not.
 
-There are no default values. Do not add any. When the page URL carries no UTM
-parameters, the form sends none.
+There are no default values. Do not add any. When the page URL carries none of
+these parameters, the form sends none.
 
 Never make these form fields. Never write them back to the URL or browser history.
 
@@ -175,8 +177,9 @@ If you cannot run commands, or the form was rebuilt, check these yourself instea
 - The honeypot input `name="website"` is still there
 - The request body is built from named fields, never by spreading `FormData` or
   the form library's values, so the honeypot value is never sent
-- All five `utm_*` params are read, each omitted when the URL has no value, with
-  no hardcoded fallbacks
+- All five `utm_*` params and the four click IDs (`gclid`, `gbraid`, `wbraid`,
+  `fbclid`) are read, each omitted when the URL has no value, with no hardcoded
+  fallbacks
 - The code checks `redirectUrl` exists before navigating to it
 - `form.tsx` points `ENDPOINT` at `/api/epd-signup` only when `route.ts` was copied
 - `PARTNER_KEY` is the bare key as a string (or `''`), not an env var or a form field

@@ -59,6 +59,10 @@ email**. Over either returns `429`.
 | `utmCampaign` | no | string, max 100 chars, no HTML |
 | `utmTerm` | no | string, max 100 chars, no HTML |
 | `utmContent` | no | string, max 100 chars, no HTML |
+| `gclid` | no | Google Ads click ID, string, max 100 chars, no HTML |
+| `gbraid` | no | Google Ads click ID (iOS app-to-web), string, max 100 chars, no HTML |
+| `wbraid` | no | Google Ads click ID (iOS web-to-app), string, max 100 chars, no HTML |
+| `fbclid` | no | Meta click ID, string, max 100 chars, no HTML |
 
 The API rejects any property it does not recognize. Build the request body from
 named fields. Never spread a whole `FormData` into it: a hidden input the host

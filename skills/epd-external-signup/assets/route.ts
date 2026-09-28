@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     email: str(raw.email, 254),
   };
 
-  // UTM attribution. The visitor's page URL lives in the browser, not here, so
+  // UTM and ad click-ID attribution. The visitor's page URL lives in the browser, not here, so
   // the client resolved these already. Forward what it sent and invent nothing:
   // a value the URL did not carry is simply absent.
   for (const key of [
@@ -55,6 +55,10 @@ export async function POST(req: NextRequest) {
     'utmCampaign',
     'utmTerm',
     'utmContent',
+    'gclid',
+    'gbraid',
+    'wbraid',
+    'fbclid',
   ] as const) {
     const value = str(raw[key], MAX_UTM_LENGTH);
     if (value) body[key] = value;
