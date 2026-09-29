@@ -43,9 +43,12 @@ even if the user did not mention partners.
 >   add a key later.
 >
 > **Where to find your key:** log in to the partner portal at https://emap.epd.dev
-> → **Integration** → **API Integration** → click **API Documentation**. Your key
-> is shown as **API Key - Authorization: `<your key>`**. Copy just the key value
-> and paste it here.
+> → **Integration** → **API Integration**
+> (https://emap.epd.dev/dashboard/partner/integration). Your key is shown next to
+> **Partner key** at the top of the page. Click **Copy** and paste it here.
+>
+> Do not use the **API Key - Authorization** value from the API Documentation
+> page. That is your secret API key, not your partner key.
 
 If your environment cannot pause to ask a question, treat the answer as **Skip**
 and say so in your final message.
@@ -54,9 +57,9 @@ Then act on the answer:
 
 | Answer | Do this |
 | --- | --- |
-| Pastes a key | Put it in `PARTNER_KEY` in whichever template Step 2 picks (Step 3). Use only the key value, never the "API Key - Authorization:" label. Confirm it is set |
-| Registered, key not to hand | Give them the steps: log in at https://emap.epd.dev → **Integration** → **API Integration** → **API Documentation** → copy the value shown after **API Key - Authorization:**. Offer to build without it now and add it later |
-| Not registered | Give them https://emap.epd.dev/signup/partner, and tell them that once registered the key is under **Integration** → **API Integration** → **API Documentation**. **Do not block on this.** Offer to build without it now and add it later |
+| Pastes a key | Put it in `PARTNER_KEY` in whichever template Step 2 picks (Step 3). Use only the key value, never a label. If it looks like the secret API key (they pasted "API Key - Authorization" or say it came from API Documentation), stop and ask for the **Partner key** instead. Confirm it is set |
+| Registered, key not to hand | Give them the steps: log in at https://emap.epd.dev → **Integration** → **API Integration** (https://emap.epd.dev/dashboard/partner/integration) → copy the value next to **Partner key** at the top of the page (use the **Copy** button). Offer to build without it now and add it later |
+| Not registered | Give them https://emap.epd.dev/signup/partner, and tell them that once registered the key is shown as **Partner key** at the top of **Integration** → **API Integration**. **Do not block on this.** Offer to build without it now and add it later |
 | Skip, or no clear answer | Build without it. Change nothing in the template. This is the common case and is completely safe |
 
 Never block the build waiting for a partner key. Registering takes time the user

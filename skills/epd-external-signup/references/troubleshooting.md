@@ -86,8 +86,12 @@ side. Report it to the backend team with the email address used.
 
 ## Signups are not credited to the partner
 
-- `PARTNER_KEY` is still `''`, or holds the portal label ("API Key - Authorization: ...")
-  instead of the bare key. Run `scripts/verify.mjs`.
+- `PARTNER_KEY` is still `''`, or holds a label ("Partner key: ...") instead of
+  the bare key. Run `scripts/verify.mjs`.
+- `PARTNER_KEY` holds the secret API key (the "API Key - Authorization" value from
+  API Documentation) instead of the partner key. Replace it with the **Partner key**
+  from the top of **Integration** → **API Integration**, and treat the exposed API
+  key as leaked: it was in page source.
 - The key is read from an environment variable that is not set, or not exposed to
   the browser. Put the key in `PARTNER_KEY` as a string.
 - The key was typed with a mistake. EPD does not check it, so a wrong key is

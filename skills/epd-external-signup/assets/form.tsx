@@ -15,7 +15,8 @@ import { useEffect, useId, useState } from 'react';
 
 const EPD_API_BASE = 'https://api-dev.dev1.epd.com';
 
-// Your EasyPayDirect partner key, e.g. 'pk_abc123'. Leave '' for no key.
+// Your EasyPayDirect partner key (Integration → API Integration → Partner key).
+// Leave '' for no key. Never the "API Key - Authorization" value: that is secret.
 // A plain string, not an env var: a missing env var silently drops the key.
 const PARTNER_KEY = '';
 

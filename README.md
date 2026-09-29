@@ -69,7 +69,7 @@ It is optional. The skill asks about it first, and there are three ways to answe
 
 | You are | What happens |
 | --- | --- |
-| A registered Easy Pay Direct partner | Paste your key and it goes into the form. To find it: log in at https://emap.epd.dev → **Integration** → **API Integration** → **API Documentation** → copy the value shown after **API Key - Authorization:** |
+| A registered Easy Pay Direct partner | Paste your key and it goes into the form. To find it: log in at https://emap.epd.dev → **Integration** → **API Integration** (https://emap.epd.dev/dashboard/partner/integration) → copy the value next to **Partner key** at the top of the page (use the **Copy** button). Not the "API Key - Authorization" value on the API Documentation page: that is your secret API key |
 | Not registered | You get a link to register at https://emap.epd.dev/signup/partner - but the build does not wait for you |
 | Not interested | Skip it. The form works exactly the same, no commission is credited |
 

@@ -273,8 +273,8 @@ const checks = [
       if (/const PARTNER_KEY/.test(src) && !value) {
         return 'PARTNER_KEY must be a quoted string, or \'\' for no key';
       }
-      if (value && /authorization|replace|\s|:/i.test(value[1])) {
-        return `PARTNER_KEY "${value[1]}" is not a bare key; paste only the value after "API Key - Authorization:"`;
+      if (value && /authorization|partner\s*key|replace|\s|:/i.test(value[1])) {
+        return `PARTNER_KEY "${value[1]}" is not a bare key; paste only the Partner key value from Integration → API Integration (not the "API Key - Authorization" secret)`;
       }
       return null;
     },
