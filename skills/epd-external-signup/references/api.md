@@ -83,7 +83,7 @@ These are the server's rules. The form cannot work around them:
   `a-z`, and the accented letters `À`-`ÿ` (José, Zoë, Müller), plus spaces,
   periods, hyphens, and straight apostrophes. Anything else is rejected:
   `Łukasz`, `Dvořák`, `Nguyễn`, non-Latin scripts, and an accent stored as a
-  separate combining mark. The templates' browser `pattern` is wider, so these
+  separate combining mark. The templates have no browser `pattern` check, so these
   names reach the server and come back as a 400 with the server's message ("First
   name can only contain letters, spaces, periods, hyphens, and apostrophes."),
   which the form shows on the field.

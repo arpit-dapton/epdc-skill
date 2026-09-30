@@ -72,8 +72,8 @@ const checks = [
     },
   },
   {
-    // iOS and macOS smart punctuation types ’. The API rejects it, and so does
-    // the name pattern, which blocks the submit with no useful message.
+    // iOS and macOS smart punctuation types ’. The API rejects it, so it is
+    // converted to ' before sending.
     name: 'curly apostrophes in names are converted',
     // The file that submits, not markup split out from its script.
     applies: (src) => /firstName/.test(src) && /new FormData\(/.test(src),

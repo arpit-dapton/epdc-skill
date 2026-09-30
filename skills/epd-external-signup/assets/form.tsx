@@ -282,7 +282,6 @@ export function EpdSignupForm() {
           required
           minLength={2}
           maxLength={20}
-          pattern="[\p{L}\p{M} .'\-]{2,20}"
           aria-invalid={invalidField === 'firstName' || undefined}
         />
       </div>
@@ -297,7 +296,6 @@ export function EpdSignupForm() {
           required
           minLength={2}
           maxLength={20}
-          pattern="[\p{L}\p{M} .'\-]{2,20}"
           aria-invalid={invalidField === 'lastName' || undefined}
         />
       </div>
