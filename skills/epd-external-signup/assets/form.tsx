@@ -40,6 +40,25 @@ type SignupResponse = {
 
 const FORM_FIELDS = ['firstName', 'lastName', 'companyName', 'email'];
 
+// EPD sends the visitor to its own pages only. Anything else in redirectUrl (a
+// non-https scheme, another domain, credentials in the URL) is not followed.
+// The parent domain is taken from EPD_API_BASE, so it follows an environment switch.
+// Plain http is allowed only for localhost, where a local EPD runs without TLS.
+function safeRedirect(url: string): string | null {
+  try {
+    const target = new URL(url);
+    const parent = new URL(EPD_API_BASE).hostname.split('.').slice(-2).join('.');
+    const trusted = target.hostname === parent || target.hostname.endsWith(`.${parent}`);
+    const local = target.hostname === 'localhost' || target.hostname === '127.0.0.1';
+    const secure = target.protocol === 'https:' || (local && target.protocol === 'http:');
+    return secure && !target.username && !target.password && trusted
+      ? target.href
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 // A normal signup answers in a few seconds. This only stops a request that
 // hangs, and is long enough not to cut off a slow one that would succeed.
 const TIMEOUT_MS = 60_000;
@@ -155,7 +174,7 @@ export function EpdSignupForm() {
     // Build the body from named fields only. Never spread the whole FormData:
     // hidden inputs the host page already had would leak in as unrecognized
     // keys and the API would reject the request.
-    const body: Record<string, string> = {
+    const body: Record<string, string | Record<string, string>> = {
       firstName: text(formData, 'firstName'),
       lastName: text(formData, 'lastName'),
       companyName: text(formData, 'companyName'),
@@ -175,14 +194,19 @@ export function EpdSignupForm() {
       ['utmCampaign', 'utm_campaign'],
       ['utmTerm', 'utm_term'],
       ['utmContent', 'utm_content'],
-      ['gclid', 'gclid'],
-      ['gbraid', 'gbraid'],
-      ['wbraid', 'wbraid'],
-      ['fbclid', 'fbclid'],
     ] as const) {
       const value = utm(param);
       if (value) body[bodyKey] = value;
     }
+
+    // Ad click IDs go inside utmParams, keyed as they appear in the URL. The API
+    // has no top-level field for them and rejects unrecognized properties (400).
+    const utmParams: Record<string, string> = {};
+    for (const param of ['gclid', 'gbraid', 'wbraid', 'fbclid']) {
+      const value = utm(param);
+      if (value) utmParams[param] = value;
+    }
+    if (Object.keys(utmParams).length > 0) body.utmParams = utmParams;
 
     setSubmitting(true);
 
@@ -223,10 +247,17 @@ export function EpdSignupForm() {
         return;
       }
 
+      const target = safeRedirect(data.redirectUrl);
+      if (!target) {
+        setError('Something went wrong. Please try again.');
+        setSubmitting(false);
+        return;
+      }
+
       // Works for both branches: a new lead goes to the OTP step, an existing
-      // account goes to login. data.alreadyRegistered tells you which, if you
-      // want to show a message before redirecting.
-      window.location.href = data.redirectUrl;
+      // account goes to login. Do not tell the visitor which one happened
+      // (data.alreadyRegistered): that would reveal whether an email has an account.
+      window.location.href = target;
       // submitting stays true on purpose while the browser navigates away.
     } catch {
       clearTimeout(timer);

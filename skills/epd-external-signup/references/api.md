@@ -36,14 +36,16 @@ Your page                      EPD backend                    EPD /auth page
                                                           account created, logged in
 ```
 
-Your only job: render the form, POST it, send the browser to `redirectUrl`.
+Your only job: render the form, POST it, send the browser to `redirectUrl` (after
+checking it is an https URL on EPD's own domain, as the templates do; plain http
+is accepted only for `localhost`, for local testing).
 EPD's `/auth` page owns everything after the redirect, including the prefill
 lookup. You never call the prefill endpoint yourself.
 
 ## POST /v1/external-signup
 
 Rate limited to **60 requests per hour per IP** and **5 requests per hour per
-email**. Over either returns `429`.
+email from the same IP**. Over either returns `429`.
 
 ### Request body (JSON)
 
@@ -59,10 +61,11 @@ email**. Over either returns `429`.
 | `utmCampaign` | no | string, max 100 chars, no HTML |
 | `utmTerm` | no | string, max 100 chars, no HTML |
 | `utmContent` | no | string, max 100 chars, no HTML |
-| `gclid` | no | Google Ads click ID, string, max 100 chars, no HTML |
-| `gbraid` | no | Google Ads click ID (iOS app-to-web), string, max 100 chars, no HTML |
-| `wbraid` | no | Google Ads click ID (iOS web-to-app), string, max 100 chars, no HTML |
-| `fbclid` | no | Meta click ID, string, max 100 chars, no HTML |
+| `utmParams` | no | object of string values (max 20 keys, 100 chars per value, no HTML), keyed as in the URL. Where ad click IDs go: `gclid`, `gbraid`, `wbraid` (Google Ads), `fbclid` (Meta). Example: `{ "gclid": "Cj0KCQ" }` |
+
+There are **no top-level `gclid`, `gbraid`, `wbraid` or `fbclid` fields**. Sending
+one at the top level is an unrecognized property and the whole request returns 400.
+Click IDs go inside `utmParams`, and only when the URL carries them.
 
 The API rejects any property it does not recognize. Build the request body from
 named fields. Never spread a whole `FormData` into it: a hidden input the host
@@ -108,8 +111,8 @@ An OTP email is sent. Redirect the browser to `redirectUrl`.
 ```
 
 No OTP is sent. Redirect the browser to `redirectUrl` and it lands on the login
-screen with the email filled in. You may show your own "you already have an
-account" message first.
+screen with the email filled in. Do not show a message saying the account exists:
+it reveals which emails are registered. Just redirect.
 
 > The `redirectUrl` values above are illustrative. The real host differs per
 > environment. Never build this URL yourself. Always use the value returned.
@@ -158,7 +161,7 @@ Same `error` envelope, no `field_errors`. Two limits can trigger it:
 | Limit | `error.message` | `Retry-After` header |
 | --- | --- | --- |
 | 60 per hour per IP | `ThrottlerException: Too Many Requests` | yes, in seconds |
-| 5 per hour per email | `Too many signup attempts for this email. Please try again later.` | not sent |
+| 5 per hour per email, from the same IP | `Too many signup attempts for this email. Please try again in N minutes.` | yes, in seconds |
 
 The templates show `error.message` and, when `Retry-After` is readable, add
 "You can try again in N minutes." (seconds rounded up to whole minutes; an HTTP
@@ -195,15 +198,18 @@ server. See `partner-key.md`.
 
 The 60/hr per-IP limit is the trap in the server-side path: every visitor shares
 your server's IP, so the whole site stops at 60 signups an hour. `assets/route.ts`
-forwards the visitor's IP for this reason. Confirm the backend honours
-`X-Forwarded-For` before relying on it, and add your own per-visitor throttle if
-it does not.
+forwards the visitor's IP in `X-Forwarded-For`, but do not rely on it: any caller
+can set that header, so EPD is expected to stop trusting it from outside its own
+proxies. Add your own per-visitor throttle to the route, and ask the backend team
+to raise the limit for your server's IP if you expect more than 60 signups an hour.
 
 ## Notes
 
-- **The lead is captured immediately.** EPD saves email, name, company, partner
-  key, and UTM values as soon as the POST succeeds, even if the visitor never
-  finishes the OTP step. That is why the redirect URL only carries the email.
+- **The lead is saved immediately, but only counts once signup completes.** EPD
+  saves email, name, company, partner key, and UTM values as soon as the POST
+  succeeds. That is why the redirect URL only carries the email. The lead is only
+  passed on for partner credit after the visitor enters the OTP and sets a
+  password. A visitor who stops at the OTP step credits nobody.
 - **Account creation is gated by the OTP and the password**, not by anything in
   the redirect URL. There is nothing in that URL to tamper with.
 - **The email travels in the query string** of the redirect URL, so it lands in
@@ -212,3 +218,6 @@ it does not.
 - **This endpoint reveals whether an email has an EPD account.** `alreadyRegistered`
   is returned to an anonymous caller, so it can be probed at 60 attempts an hour
   per IP. Raise this with the backend team if account enumeration matters to you.
+  The templates never show the visitor which branch happened, and neither should
+  you: a message like "you already have an account" tells anyone which emails are
+  registered.

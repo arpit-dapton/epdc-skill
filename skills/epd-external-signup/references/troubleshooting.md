@@ -23,6 +23,7 @@ Check the browser console and network tab first.
 | An extra property in the body | The API whitelists properties. Build the body from named fields, never spread a whole `FormData`. If the host page's form has its own hidden inputs, a spread leaks them in |
 | Field names were renamed | They must be exactly `firstName`, `lastName`, `companyName`, `email` |
 | A value is empty or whitespace | The templates trim before sending. If you edited that out, `"  "` passes the browser's `minlength` and fails server-side |
+| A click ID (`gclid`, `gbraid`, `wbraid`, `fbclid`) sent as a top-level field | The API has no such field and returns 400 for the whole request, so any ad-click visitor fails. Click IDs go inside `utmParams`: `{ "gclid": "..." }` |
 | A `utm*` or click-ID (`gclid`, `gbraid`, `wbraid`, `fbclid`) value over 100 chars | The templates truncate to 100. Do not remove that |
 | A name with a letter outside Western European Latin (`Ł`, `ř`, `ễ`, non-Latin scripts) | The server only accepts `A-Z`, `a-z`, and `À`-`ÿ`. The form shows its "can only contain letters..." message on the field. Nothing to fix in the form. See "Known gaps" in `api.md` |
 | Company name under 3 chars | `companyName` has a 3-character minimum. "3M" is rejected. Known gap, see `api.md` |
@@ -43,7 +44,6 @@ The form adds "You can try again in N minutes." only when it can read the
 
 - **Form posts straight to EPD:** the browser hides `Retry-After` unless EPD's CORS
   sends `Access-Control-Expose-Headers: Retry-After`. Ask the backend team to add it.
-- **The per-email limit (5 per hour):** EPD does not send `Retry-After` for it.
 - **Posting through `route.ts`:** an older `route.ts` did not pass the header on.
   Recopy it from `assets/`.
 
@@ -53,9 +53,10 @@ Expected if you are calling from a server. The limit is 60 requests per hour per
 IP, and every visitor shares your server's IP, so the whole site stops at 60 an
 hour.
 
-`assets/route.ts` forwards the visitor's IP in `X-Forwarded-For` to avoid this.
-Confirm the backend honours that header. If it does not, add your own per-visitor
-throttle and ask the backend team to raise the limit for your server's IP.
+`assets/route.ts` forwards the visitor's IP in `X-Forwarded-For`, but do not rely
+on it: any caller can set that header, so EPD is expected to stop trusting it from
+outside its own proxies. Add your own per-visitor throttle to the route and ask the
+backend team to raise the limit for your server's IP.
 
 Client-side templates do not have this problem. The limit applies per visitor,
 which is usually what you want. Note that visitors behind corporate NAT or a
@@ -80,7 +81,8 @@ side. Report it to the backend team with the email address used.
 ## OTP email never arrives
 
 - Check whether the response had `alreadyRegistered: true`. That branch sends no
-  OTP by design and redirects to login instead.
+  OTP by design and redirects to login instead. (Do not tell the visitor this:
+  it reveals which emails have accounts.)
 - Otherwise it is an EPD-side delivery issue. The POST succeeding means the lead
   was saved.
 
@@ -94,8 +96,10 @@ side. Report it to the backend team with the email address used.
   key as leaked: it was in page source.
 - The key is read from an environment variable that is not set, or not exposed to
   the browser. Put the key in `PARTNER_KEY` as a string.
-- The key was typed with a mistake. EPD does not check it, so a wrong key is
-  accepted silently. Copy it from the portal again.
+- The key was typed with a mistake. The form does not report it: the signup still
+  succeeds, but nobody is credited. Copy it from the portal again.
+- The visitor stopped at the OTP step. A signup is only credited once the visitor
+  enters the OTP and sets a password.
 
 ## Everything works in dev, nothing works in production
 

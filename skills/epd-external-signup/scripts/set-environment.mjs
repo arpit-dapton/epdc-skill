@@ -18,44 +18,70 @@
  *     --portal=https://portal.example.com
  */
 
-import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, lstatSync } from 'node:fs';
 import { join, relative, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const SELF = fileURLToPath(import.meta.url);
-const ROOT = join(SELF, '..', '..', '..', '..');
+// The skill's own folder only (scripts/ -> skill root). Never go higher: when the
+// skill is installed under ~/.claude/skills, a parent directory holds unrelated files.
+const ROOT = join(SELF, '..', '..');
 
 /** Hosts that must never appear in a published, live skill. */
 const DEV_HOSTS = ['https://api-dev.dev1.epd.com', 'https://emap.epd.dev'];
 
-/** What each slot means, so the audit output is readable. */
-const SLOTS = [
-  {
-    flag: 'api-base',
-    label: 'API base',
-    detail: 'EPD_API_BASE in every template; the URL the form posts to',
-    match: /https:\/\/api[\w-]*(?:\.[\w-]+)+/g,
-  },
-  {
-    flag: 'portal',
-    label: 'Partner portal',
-    detail: 'where partners register and find their commission key',
-    match: /https:\/\/emap(?:\.[\w-]+)+/g,
-  },
-];
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** Exact URL, not a prefix of a longer host (https://x.com must not match https://x.com.evil). */
+const exactUrl = (url) => new RegExp(escapeRe(url) + '(?![\\w.-])', 'g');
 
 function walk(dir) {
   const out = [];
   for (const entry of readdirSync(dir)) {
     if (entry === '.git' || entry === 'node_modules') continue;
     const full = join(dir, entry);
-    if (statSync(full).isDirectory()) out.push(...walk(full));
+    const stat = lstatSync(full);
+    if (stat.isSymbolicLink()) continue; // never follow links out of the skill or into a cycle
+    if (stat.isDirectory()) out.push(...walk(full));
     else if (/\.(md|html|tsx?|mjs|js)$/.test(entry) && full !== SELF) out.push(full);
   }
   return out;
 }
 
 const files = walk(ROOT);
+
+/** The origin currently in use, read from the file that defines it. */
+function currentOrigin(file, pattern, what) {
+  const m = readFileSync(join(ROOT, file), 'utf8').match(pattern);
+  if (!m) {
+    console.error(`Cannot find the current ${what} in ${file}. Restore it before running this script.`);
+    process.exit(1);
+  }
+  return m[1];
+}
+
+/**
+ * What each slot means. `match` is the exact URL now in use, so only the skill's
+ * own URLs are ever touched: unrelated https://api.* links are left alone.
+ */
+const SLOTS = [
+  {
+    flag: 'api-base',
+    label: 'API base',
+    detail: 'EPD_API_BASE in every template; the URL the form posts to',
+    match: exactUrl(
+      currentOrigin('assets/form.html', /EPD_API_BASE\s*=\s*'(https:\/\/[^'\/]+)'/, 'EPD_API_BASE')
+    ),
+  },
+  {
+    flag: 'portal',
+    label: 'Partner portal',
+    detail: 'where partners register and find their partner key',
+    match: exactUrl(
+      currentOrigin('SKILL.md', /partner portal at (https:\/\/[^\s\/)]+)/, 'partner portal URL')
+    ),
+  },
+];
 
 function findAll() {
   const found = new Map(SLOTS.map((s) => [s.flag, new Map()]));

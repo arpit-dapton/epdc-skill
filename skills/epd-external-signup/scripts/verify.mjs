@@ -261,6 +261,52 @@ const checks = [
     },
   },
   {
+    // The API has no top-level click-ID fields and whitelists properties, so a
+    // top-level gclid makes the whole signup a 400 for every ad-click visitor.
+    name: 'click IDs are sent inside utmParams',
+    applies: (src) => /gclid/.test(src),
+    run: (src) => {
+      if (!/utmParams/.test(src)) {
+        return 'gclid/gbraid/wbraid/fbclid must go inside a utmParams object, not as top-level fields (the API returns 400)';
+      }
+      return /\[\s*['"](gclid|gbraid|wbraid|fbclid)['"]\s*,\s*['"](gclid|gbraid|wbraid|fbclid)['"]\s*\]|\bbody\.(gclid|gbraid|wbraid|fbclid)\b/.test(src)
+        ? 'a click ID is still set as a top-level body field; move it into utmParams'
+        : null;
+    },
+  },
+  {
+    // redirectUrl comes back from the API. Only follow an https URL on EPD's domain.
+    name: 'redirectUrl is checked against EPD domain before navigating',
+    applies: (src) => /location\.href\s*=/.test(src) && src.includes('redirectUrl'),
+    run: (src) =>
+      /safeRedirect\s*\(/.test(src) && /protocol\s*===\s*['"]https:['"]/.test(src)
+        ? null
+        : 'redirectUrl is followed without checking it is an https URL on EPD\'s domain (safeRedirect was removed)',
+  },
+  {
+    name: 'route handler guards origin, content type and body',
+    applies: (src) => /from ['"]next\/server['"]/.test(src),
+    run: (src) => {
+      const missing = [];
+      if (!/headers\.get\(\s*['"]origin['"]\s*\)/i.test(src)) missing.push('Origin check');
+      if (!/application\/json/.test(src)) missing.push('JSON content-type check');
+      if (!/typeof parsed !== ['"]object['"]|typeof raw !== ['"]object['"]/.test(src)) {
+        missing.push('non-object body check');
+      }
+      return missing.length ? `route handler missing: ${missing.join(', ')}. Recopy assets/route.ts` : null;
+    },
+  },
+  {
+    name: 'partner key contains only safe characters',
+    applies: (src) => /const PARTNER_KEY\s*=\s*['"][^'"]+['"]/.test(src),
+    run: (src) => {
+      const value = src.match(/const PARTNER_KEY\s*=\s*['"]([^'"]+)['"]/)[1];
+      return /^[A-Za-z0-9_-]{8,100}$/.test(value)
+        ? null
+        : `PARTNER_KEY "${value}" is not a plain key (letters, digits, - and _ , 8-100 chars)`;
+    },
+  },
+  {
     // The key is public, so it lives in the form as a plain string. An env var
     // that is missing (or not exposed to the browser) silently drops it.
     name: 'partner key is a plain string',

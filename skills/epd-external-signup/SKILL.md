@@ -73,10 +73,12 @@ The partner key is not a secret. It goes in the form's `PARTNER_KEY` constant as
 plain string, whatever the site is built with. Never read it from an environment
 variable (a missing one silently drops the key) and never make it a form field
 (the body is built from named fields, so it would not be sent).
+Check the pasted value is only letters, digits, `-` or `_` before writing it into
+the source.
 
 After generating, state plainly which happened:
 
-- "Added your partner key `<key>` to the form. Every signup it sends is credited to you."
+- "Added your partner key `<key>` to the form. Every signup completed through it is credited to you."
 - "Built without a partner key. To add one later, set `PARTNER_KEY` in the form."
 
 ## Step 2 - Pick a template
@@ -118,6 +120,9 @@ Change only these things:
 
 1. `EPD_API_BASE` - leave the default unless the user named an environment.
 2. `PARTNER_KEY` - the user's key as a string, when they gave one. Otherwise leave `''`.
+   Only letters, digits, `-` and `_` (8-100 characters) go in. Anything else (quotes,
+   spaces, a label, a pasted sentence) is not a key: ask again instead of writing
+   it into the source.
 3. `ENDPOINT` in `form.tsx` - **only when you also copied `route.ts`**. Set it to
    `'/api/epd-signup'`. Its default posts straight to EPD. Pointing it at
    `/api/epd-signup` without the route makes every submit fail with a 404.
@@ -152,6 +157,9 @@ Each template reads `utm_source`, `utm_medium`, `utm_campaign`, `utm_term`, and
 ad click IDs `gclid`, `gbraid`, `wbraid` (Google Ads) and `fbclid` (Meta). A URL
 like `?gclid=123&gbraid=456&wbraid=789&fbclid=009` is picked up as-is. All nine are
 treated the same way: sent when the URL carries them, omitted when it does not.
+The five `utm_*` values are top-level fields (`utmSource` ...). The four click IDs
+go **inside** a `utmParams` object, keyed as in the URL (`{ "gclid": "123" }`): the
+API rejects a top-level `gclid` and the whole signup returns 400.
 
 There are no default values. Do not add any. When the page URL carries none of
 these parameters, the form sends none.
@@ -183,7 +191,9 @@ If you cannot run commands, or the form was rebuilt, check these yourself instea
 - All five `utm_*` params and the four click IDs (`gclid`, `gbraid`, `wbraid`,
   `fbclid`) are read, each omitted when the URL has no value, with no hardcoded
   fallbacks
-- The code checks `redirectUrl` exists before navigating to it
+- The code checks `redirectUrl` exists, and that it is an https URL on EPD's own
+  domain (plain http only for `localhost`), before navigating to it
+- The four click IDs are sent inside `utmParams`, never as top-level fields
 - `form.tsx` points `ENDPOINT` at `/api/epd-signup` only when `route.ts` was copied
 - `PARTNER_KEY` is the bare key as a string (or `''`), not an env var or a form field
 - The `<form>` keeps `method="post"`

@@ -26,10 +26,37 @@ function str(value: unknown, maxLength: number): string {
   return typeof value === 'string' ? value.trim().slice(0, maxLength) : '';
 }
 
+const TIMEOUT_MESSAGE =
+  'This is taking longer than expected. Check your inbox: if a code arrived, your signup went through. If not, please try again.';
+
 export async function POST(req: NextRequest) {
+  // Only this site's own pages may call this route. A browser always sends Origin
+  // on a cross-site POST, so a mismatch means another site is driving the visitor.
+  const origin = req.headers.get('origin');
+  if (origin) {
+    let sameSite = false;
+    try {
+      sameSite = new URL(origin).host === req.headers.get('host');
+    } catch {}
+    if (!sameSite) {
+      return NextResponse.json({ success: false, message: 'Forbidden.' }, { status: 403 });
+    }
+  }
+
+  // JSON only. A cross-site page cannot send this content type without a CORS
+  // preflight, which this route never answers.
+  if (!req.headers.get('content-type')?.includes('application/json')) {
+    return NextResponse.json(
+      { success: false, message: 'Content-Type must be application/json.' },
+      { status: 415 }
+    );
+  }
+
   let raw: Record<string, unknown>;
   try {
-    raw = await req.json();
+    const parsed: unknown = await req.json();
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error();
+    raw = parsed as Record<string, unknown>;
   } catch {
     return NextResponse.json(
       { success: false, message: 'Malformed request body.' },
@@ -39,7 +66,7 @@ export async function POST(req: NextRequest) {
 
   // Rebuild the body from a whitelist. Never forward the client's object as-is:
   // the API rejects unrecognized properties.
-  const body: Record<string, string> = {
+  const body: Record<string, string | Record<string, string>> = {
     firstName: str(raw.firstName, 20),
     lastName: str(raw.lastName, 20),
     companyName: str(raw.companyName, 150),
@@ -49,29 +76,31 @@ export async function POST(req: NextRequest) {
   // UTM and ad click-ID attribution. The visitor's page URL lives in the browser, not here, so
   // the client resolved these already. Forward what it sent and invent nothing:
   // a value the URL did not carry is simply absent.
-  for (const key of [
-    'utmSource',
-    'utmMedium',
-    'utmCampaign',
-    'utmTerm',
-    'utmContent',
-    'gclid',
-    'gbraid',
-    'wbraid',
-    'fbclid',
-  ] as const) {
+  for (const key of ['utmSource', 'utmMedium', 'utmCampaign', 'utmTerm', 'utmContent'] as const) {
     const value = str(raw[key], MAX_UTM_LENGTH);
     if (value) body[key] = value;
   }
+
+  // Ad click IDs travel inside utmParams: the API has no top-level field for them
+  // and rejects unrecognized properties.
+  const clickIds = (raw.utmParams ?? {}) as Record<string, unknown>;
+  const utmParams: Record<string, string> = {};
+  for (const key of ['gclid', 'gbraid', 'wbraid', 'fbclid'] as const) {
+    const value = str(clickIds[key], MAX_UTM_LENGTH);
+    if (value) utmParams[key] = value;
+  }
+  if (Object.keys(utmParams).length > 0) body.utmParams = utmParams;
 
   // Partner key, set in the form's PARTNER_KEY. Forwarded when present.
   const partnerKey = str(raw.partnerKey, 100);
   if (partnerKey) body.partnerKey = partnerKey;
 
-  // EPD rate limits 60 requests per hour per IP. Without this header every
-  // visitor shares your server's single IP and the whole site stops at 60 an
-  // hour. Confirm the backend honours it; if it does not, add your own
-  // per-visitor throttle here.
+  // EPD rate limits 60 requests per hour per IP. This header asks EPD to count the
+  // visitor's IP instead of your server's. Do not rely on it: any caller can set
+  // X-Forwarded-For, so EPD is expected to stop trusting it from outside its own
+  // proxies. Once it does, every visitor counts against your server's single IP
+  // and the whole site stops at 60 signups an hour. Add your own per-visitor
+  // throttle here before relying on this route for real traffic.
   const visitorIp =
     req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
     req.headers.get('x-real-ip') ??
@@ -106,7 +135,7 @@ export async function POST(req: NextRequest) {
       {
         success: false,
         message: timedOut
-          ? 'Signup service timed out. Please try again.'
+          ? TIMEOUT_MESSAGE
           : 'Signup service is unavailable. Please try again.',
       },
       { status: 502 }

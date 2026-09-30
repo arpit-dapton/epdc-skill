@@ -11,7 +11,9 @@ partner, the same way a referral code does, so it is fine in page source.
 | Not registered | Register at https://emap.epd.dev/signup/partner, then follow the same steps |
 
 The partner key is a 35-character string of letters and digits. Use only the
-value, without the "Partner key" label.
+value, without the "Partner key" label. Before writing it into the source, check
+it matches `^[A-Za-z0-9_-]{8,100}$`. A value with quotes, spaces or line breaks
+would break, or inject into, the generated code: do not write it, ask again.
 
 Do not confuse it with the **API Key - Authorization** value on the portal's API
 Documentation page. That is the partner's secret API key: it authenticates calls
@@ -55,7 +57,7 @@ Do not:
 
 Tell the user explicitly which of these happened:
 
-- "Added your partner key `<key>` to the form. Every signup it sends is credited to you."
+- "Added your partner key `<key>` to the form. Every signup completed through it is credited to you."
 - "Built without a partner key. To add one later, set `PARTNER_KEY` in the form."
 
 Do not leave it ambiguous. A silently missing key means uncredited commission
@@ -80,12 +82,13 @@ Signups sent before the key was added are not credited.
 Pure pass-through attribution. The signup endpoint does not check the key, it
 stores the string with the lead. Sending it:
 
-- saves it with the lead as soon as the POST succeeds, so the partner is credited
-  even if the visitor never finishes OTP and password
+- saves it with the lead as soon as the POST succeeds, but the partner is only
+  credited once the visitor finishes the OTP and password steps. A visitor who
+  stops before that credits nobody
 - does not ride on the `redirectUrl`
 - does not change the OTP step, the gating logic, or which redirect branch comes back
 
-Because nothing checks it, a mistyped key is accepted and credits nobody. Copy it
-exactly.
+The form does not check the key, so a mistyped key is not reported: the signup
+still succeeds and credits nobody. Copy it exactly.
 
 Omitting it is completely safe.
