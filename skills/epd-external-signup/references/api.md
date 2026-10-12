@@ -8,39 +8,40 @@ create a merchant that does not have a key yet.
 ## The flow
 
 ```
-Your page                      EPD backend                    EPD /auth page
----------                      -----------                    --------------
-[first/last/company/email]
+Your page                      EPD backend                    EPD /auth/signup page
+---------                      -----------                    ---------------------
+[the signup questions]
      |  Next >
      |  POST /v1/external-signup
      +---------------------------->
-                                 validates the 4 fields
+                                 validates the fields
                                  if email already has an account
-                                   -> returns a login URL, no OTP
+                                   -> returns a login URL
                                  else
-                                   -> emails a 6-digit OTP
                                    -> saves the lead server-side
+                                   -> stores the answers for 24h
+                                      under a one-time code
                                    -> returns a redirect URL
-                                      carrying only the email
+                                      carrying the email and code
      <----------------------------+
      |  { alreadyRegistered, redirectUrl }
      |
      |  send the browser to redirectUrl
      +------------------------------------------------------------>
-                                                          reads email from URL
-                                                          jumps to the OTP step
-                                                          fetches name/company to
-                                                            prefill the next step
-                                                          user enters OTP, sets a
-                                                            password
+                                                          loads the answers by code
+                                                          and fills in the form
+                                                          user accepts the Terms and
+                                                            clicks Create account
                                                           account created, logged in
 ```
 
 Your only job: render the form, POST it, send the browser to `redirectUrl` (after
 checking it is an https URL on EPD's own domain, as the templates do; plain http
 is accepted only for `localhost`, for local testing).
-EPD's `/auth` page owns everything after the redirect, including the prefill
-lookup. You never call the prefill endpoint yourself.
+EPD's `/auth/signup` page owns everything after the redirect, including loading
+the answers back. You never call the prefill endpoint yourself.
+
+The Terms & Conditions checkbox is only on EPD's page. Do not add one to your form.
 
 ## POST /v1/external-signup
 
@@ -55,6 +56,12 @@ email from the same IP**. Over either returns `429`.
 | `firstName` | yes | 2-20 chars, letters, spaces, periods, hyphens, straight apostrophes (`'`, not `’`), no HTML. The templates convert curly apostrophes before sending |
 | `lastName` | yes | 2-20 chars, same character set as `firstName`, no HTML |
 | `companyName` | yes | 3-150 chars, no HTML |
+| `country` | yes | number: an `id` from `GET /emap/lists/countries` |
+| `industry` | yes | number: an `id` from `GET /emap/lists/industryTypes` |
+| `industryOther` | when `industry` is `53` ("Other") | 1-255 chars, no HTML. The templates send it only for `53` |
+| `estimatedYearlySales` | yes | number, greater than 0 (USD) |
+| `website` | yes | a bare host (`example.com`) or a full URL (`https://example.com/shop`), no HTML |
+| `cardPaymentMethod` | yes | one of `not_accepting_yet`, `stripe`, `paypal`, `square`, `shopping_cart_or_funnel`, `another_processor` |
 | `partnerKey` | no | string, max 100 chars, no HTML. See `partner-key.md` |
 | `utmSource` | no | string, max 100 chars, no HTML |
 | `utmMedium` | no | string, max 100 chars, no HTML |
@@ -72,8 +79,21 @@ named fields. Never spread a whole `FormData` into it: a hidden input the host
 page already had (its own `name="utm_campaign"` analytics field, for example)
 would leak in as an unrecognized snake_case key and the request would 400.
 
-Name and company rules mirror EPD's own signup form, so a value accepted here
-also passes final account creation. No surprise rejection later.
+These rules mirror EPD's own signup page, so a value accepted here also passes
+final account creation. No surprise rejection later.
+
+`country`, `industry` and `estimatedYearlySales` are JSON numbers, not strings.
+
+### Country and industry lists
+
+`GET /emap/lists/countries` and `GET /emap/lists/industryTypes` are public (no
+auth, CORS open) and return:
+
+```json
+{ "success": true, "data": [{ "id": 1, "name": "United States" }] }
+```
+
+Send the chosen `id`. The templates load both lists when the form appears.
 
 ### Known gaps in these rules
 
@@ -95,11 +115,13 @@ These are the server's rules. The form cannot work around them:
 ```json
 {
   "alreadyRegistered": false,
-  "redirectUrl": "https://app.epd.example/auth?externalSignup=1&email=ada%40example.com"
+  "redirectUrl": "https://app.epd.example/auth/signup?email=ada%40example.com&prefill=Xq3..."
 }
 ```
 
-An OTP email is sent. Redirect the browser to `redirectUrl`.
+Redirect the browser to `redirectUrl`. EPD's signup page opens with the answers
+filled in. `prefill` is missing when EPD could not store the answers; the page
+then opens with only the email filled in.
 
 ### Response - email already has an account
 
@@ -110,7 +132,7 @@ An OTP email is sent. Redirect the browser to `redirectUrl`.
 }
 ```
 
-No OTP is sent. Redirect the browser to `redirectUrl` and it lands on the login
+Redirect the browser to `redirectUrl` and it lands on the login
 screen with the email filled in. Do not show a message saying the account exists:
 it reveals which emails are registered. Just redirect.
 
@@ -146,7 +168,7 @@ top-level `field_errors` and no `messages` array.
 
 - `field_errors` lists **every** failing property, not only the first one, and an
   unrecognized property (`"Property bogus should not exist."`) can come first.
-  Show the first error whose `field` is one of the four inputs, and mark that input.
+  Show the first error whose `field` is one of the inputs, and mark that input.
 - `error.message` summarises all of them ("Validation failed for N fields. ...").
   Use it only when no error names a form field.
 - `field_errors` is absent on non-validation errors. Fall back to `error.message`,
@@ -177,8 +199,7 @@ See `troubleshooting.md` for what the IP limit means when you call from a server
 
 ### Response 5xx
 
-Show a generic retry message. Do not retry automatically: the request may have
-already created the lead and sent an OTP.
+Show a generic retry message. Do not retry automatically.
 
 ## Client-side or server-side
 
@@ -206,12 +227,13 @@ to raise the limit for your server's IP if you expect more than 60 signups an ho
 ## Notes
 
 - **The lead is saved immediately, but only counts once signup completes.** EPD
-  saves email, name, company, partner key, and UTM values as soon as the POST
-  succeeds. That is why the redirect URL only carries the email. The lead is only
-  passed on for partner credit after the visitor enters the OTP and sets a
-  password. A visitor who stops at the OTP step credits nobody.
-- **Account creation is gated by the OTP and the password**, not by anything in
-  the redirect URL. There is nothing in that URL to tamper with.
+  saves email, partner key, and UTM values as soon as the POST succeeds. The lead
+  is only passed on for partner credit after the visitor accepts the Terms and
+  clicks **Create account** on EPD's signup page. A visitor who stops there
+  credits nobody.
+- **The answers are not in the redirect URL.** It carries the email and a random
+  one-time code; EPD's page loads the answers by that code, for 24 hours. EPD's
+  page removes both from the address bar once it opens.
 - **The email travels in the query string** of the redirect URL, so it lands in
   browser history and referrer headers. Acceptable for a first-touch flow, but
   worth knowing.

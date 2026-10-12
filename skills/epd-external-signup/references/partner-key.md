@@ -83,10 +83,10 @@ Pure pass-through attribution. The signup endpoint does not check the key, it
 stores the string with the lead. Sending it:
 
 - saves it with the lead as soon as the POST succeeds, but the partner is only
-  credited once the visitor finishes the OTP and password steps. A visitor who
-  stops before that credits nobody
+  credited once the visitor accepts the Terms and creates the account on EPD's
+  signup page. A visitor who stops before that credits nobody
 - does not ride on the `redirectUrl`
-- does not change the OTP step, the gating logic, or which redirect branch comes back
+- does not change EPD's signup page or which redirect branch comes back
 
 The form does not check the key, so a mistyped key is not reported: the signup
 still succeeds and credits nobody. Copy it exactly.

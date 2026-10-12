@@ -12,8 +12,9 @@
 <style>
   .epd-field { margin-bottom: 1rem; }
   .epd-field label { display: block; margin-bottom: 0.25rem; }
-  .epd-field input { display: block; width: 100%; padding: 0.5rem; }
-  .epd-field input[aria-invalid='true'] { border-color: #c00; }
+  .epd-field input,
+  .epd-field select { display: block; width: 100%; padding: 0.5rem; }
+  .epd-field [aria-invalid='true'] { border-color: #c00; }
   /* Shrunk to 1px in place, not pushed off-screen: a left offset scrolls
      right-to-left pages sideways. */
   .epd-hp {
@@ -79,10 +80,70 @@
     <input id="epd-email" name="email" type="email" autocomplete="email" required />
   </div>
 
+  <!-- Options are loaded from EPD when the page opens. -->
+  <div class="epd-field">
+    <label for="epd-country">Country</label>
+    <select id="epd-country" name="country" required>
+      <option value="">Select...</option>
+    </select>
+  </div>
+
+  <div class="epd-field">
+    <label for="epd-industry">Industry</label>
+    <select id="epd-industry" name="industry" required>
+      <option value="">Select...</option>
+    </select>
+  </div>
+
+  <!-- Shown only when the industry is "Other". -->
+  <div class="epd-field" data-epd-industry-other hidden>
+    <label for="epd-industry-other">Specify your industry</label>
+    <input id="epd-industry-other" name="industryOther" type="text" maxlength="255" disabled />
+  </div>
+
+  <div class="epd-field">
+    <label for="epd-yearly-sales">Estimated yearly sales (USD)</label>
+    <input
+      id="epd-yearly-sales"
+      name="estimatedYearlySales"
+      type="number"
+      inputmode="decimal"
+      min="1"
+      step="any"
+      required
+    />
+  </div>
+
+  <div class="epd-field">
+    <label for="epd-website">Company website</label>
+    <input
+      id="epd-website"
+      name="website"
+      type="text"
+      inputmode="url"
+      autocomplete="url"
+      placeholder="example.com"
+      required
+    />
+  </div>
+
+  <div class="epd-field">
+    <label for="epd-card-payments">How are you currently accepting card payments?</label>
+    <select id="epd-card-payments" name="cardPaymentMethod" required>
+      <option value="">Select...</option>
+      <option value="not_accepting_yet">Not accepting payments yet</option>
+      <option value="stripe">Stripe</option>
+      <option value="paypal">PayPal</option>
+      <option value="square">Square</option>
+      <option value="shopping_cart_or_funnel">A shopping cart or funnel</option>
+      <option value="another_processor">Another processor</option>
+    </select>
+  </div>
+
   <!-- Honeypot. Hidden from people, filled by bots. Do not remove. -->
   <div class="epd-hp" aria-hidden="true">
-    <label for="epd-website">Website</label>
-    <input id="epd-website" name="website" type="text" tabindex="-1" autocomplete="off" />
+    <label for="epd-homepage">Homepage</label>
+    <input id="epd-homepage" name="homepage" type="text" tabindex="-1" autocomplete="off" />
   </div>
 
   <button type="submit">Next</button>
@@ -97,7 +158,42 @@
     // Leave '' for no key. Never the "API Key - Authorization" value: that is secret.
     const PARTNER_KEY = '';
 
-    const FORM_FIELDS = ['firstName', 'lastName', 'companyName', 'email'];
+    const FORM_FIELDS = [
+      'firstName',
+      'lastName',
+      'companyName',
+      'email',
+      'country',
+      'industry',
+      'industryOther',
+      'estimatedYearlySales',
+      'website',
+      'cardPaymentMethod',
+    ];
+
+    // EPD's id for the "Other" industry, which needs industryOther filled in.
+    const INDUSTRY_OTHER = '53';
+
+    // Country and industry options, loaded once and shared by every form on the page.
+    // EPD answers { data: [{ id, name }] }.
+    const lists = {};
+    function loadList(key) {
+      if (!lists[key]) {
+        lists[key] = fetch(EPD_API_BASE + '/emap/lists/' + key)
+          .then(function (res) {
+            if (!res.ok) throw new Error('List request failed');
+            return res.json();
+          })
+          .then(function (data) {
+            return (data && data.data) || [];
+          })
+          .catch(function (err) {
+            delete lists[key];
+            throw err;
+          });
+      }
+      return lists[key];
+    }
 
     // EPD sends the visitor to its own pages only. Anything else in redirectUrl (a
     // non-https scheme, another domain, credentials in the URL) is not followed.
@@ -122,10 +218,7 @@
     // hangs, and is long enough not to cut off a slow one that would succeed.
     const TIMEOUT_MS = 60000;
 
-    // On timeout the signup may still have gone through and emailed a code, and
-    // submitting again cancels that code. Say so, rather than only "try again".
-    const TIMEOUT_MESSAGE =
-      'This is taking longer than expected. Check your inbox: if a code arrived, your signup went through. If not, please try again.';
+    const TIMEOUT_MESSAGE = 'This is taking longer than expected. Please try again.';
 
     // EPD errors look like { error: { message, field_errors: [{ field, message }] } }.
     // field_errors can lead with a property that is not one of the inputs (an
@@ -245,6 +338,33 @@
         }
       }
 
+      for (const pair of [
+        ['country', 'countries'],
+        ['industry', 'industryTypes'],
+      ]) {
+        const select = form.elements.namedItem(pair[0]);
+        loadList(pair[1])
+          .then(function (items) {
+            for (const item of items) {
+              select.appendChild(new Option(item.name, String(item.id)));
+            }
+          })
+          .catch(function () {
+            showError('Could not load the form. Please refresh the page.');
+          });
+      }
+
+      // industryOther is asked, and sent, only for the "Other" industry.
+      const industry = form.elements.namedItem('industry');
+      const industryOther = form.elements.namedItem('industryOther');
+      const industryOtherField = form.querySelector('[data-epd-industry-other]');
+      industry.addEventListener('change', function () {
+        const other = industry.value === INDUSTRY_OTHER;
+        industryOtherField.hidden = !other;
+        industryOther.disabled = !other;
+        industryOther.required = other;
+      });
+
       // Back button after the redirect restores this page from the browser's
       // cache with the button still disabled. Turn it back on.
       window.addEventListener('pageshow', function (event) {
@@ -267,7 +387,7 @@
         // Honeypot tripped. Act like it worked and send nothing. Only when the
         // field is really hidden: a page that blocks inline styles shows it, and
         // a person who fills it in must not be dropped.
-        if (text(formData, 'website') && isHidden(form.elements.namedItem('website').parentElement)) {
+        if (text(formData, 'homepage') && isHidden(form.elements.namedItem('homepage').parentElement)) {
           return;
         }
 
@@ -284,7 +404,15 @@
           lastName: text(formData, 'lastName'),
           companyName: text(formData, 'companyName'),
           email: text(formData, 'email'),
+          country: Number(text(formData, 'country')),
+          industry: Number(text(formData, 'industry')),
+          estimatedYearlySales: Number(text(formData, 'estimatedYearlySales')),
+          website: text(formData, 'website'),
+          cardPaymentMethod: text(formData, 'cardPaymentMethod'),
         };
+        if (text(formData, 'industry') === INDUSTRY_OTHER) {
+          body.industryOther = text(formData, 'industryOther');
+        }
 
         if (PARTNER_KEY.trim()) body.partnerKey = PARTNER_KEY.trim();
 
@@ -361,8 +489,8 @@
             return;
           }
 
-          // Works for both branches: a new lead goes to the OTP step, an existing
-          // account goes to login. Do not tell the visitor which one happened
+          // Works for both branches: a new lead goes to EPD's signup page with these
+          // answers filled in, an existing account goes to login. Do not tell the visitor which one happened
           // (data.alreadyRegistered): that would reveal whether an email has an account.
           window.location.href = target;
           // Button stays disabled on purpose while the browser navigates away.

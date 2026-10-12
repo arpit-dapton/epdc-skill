@@ -26,8 +26,12 @@ function str(value: unknown, maxLength: number): string {
   return typeof value === 'string' ? value.trim().slice(0, maxLength) : '';
 }
 
-const TIMEOUT_MESSAGE =
-  'This is taking longer than expected. Check your inbox: if a code arrived, your signup went through. If not, please try again.';
+// Numbers pass through as numbers; anything else is left for EPD to reject.
+function num(value: unknown): number | string {
+  return typeof value === 'number' ? value : str(value, 50);
+}
+
+const TIMEOUT_MESSAGE = 'This is taking longer than expected. Please try again.';
 
 export async function POST(req: NextRequest) {
   // Only this site's own pages may call this route. A browser always sends Origin
@@ -66,12 +70,19 @@ export async function POST(req: NextRequest) {
 
   // Rebuild the body from a whitelist. Never forward the client's object as-is:
   // the API rejects unrecognized properties.
-  const body: Record<string, string | Record<string, string>> = {
+  const body: Record<string, string | number | Record<string, string>> = {
     firstName: str(raw.firstName, 20),
     lastName: str(raw.lastName, 20),
     companyName: str(raw.companyName, 150),
     email: str(raw.email, 254),
+    country: num(raw.country),
+    industry: num(raw.industry),
+    estimatedYearlySales: num(raw.estimatedYearlySales),
+    website: str(raw.website, 255),
+    cardPaymentMethod: str(raw.cardPaymentMethod, 50),
   };
+  const industryOther = str(raw.industryOther, 255);
+  if (industryOther) body.industryOther = industryOther;
 
   // UTM and ad click-ID attribution. The visitor's page URL lives in the browser, not here, so
   // the client resolved these already. Forward what it sent and invent nothing:

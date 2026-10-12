@@ -38,7 +38,48 @@ type SignupResponse = {
   message?: string;
 };
 
-const FORM_FIELDS = ['firstName', 'lastName', 'companyName', 'email'];
+const FORM_FIELDS = [
+  'firstName',
+  'lastName',
+  'companyName',
+  'email',
+  'country',
+  'industry',
+  'industryOther',
+  'estimatedYearlySales',
+  'website',
+  'cardPaymentMethod',
+];
+
+// EPD's id for the "Other" industry, which needs industryOther filled in.
+const INDUSTRY_OTHER = '53';
+
+const CARD_PAYMENT_METHODS = [
+  ['not_accepting_yet', 'Not accepting payments yet'],
+  ['stripe', 'Stripe'],
+  ['paypal', 'PayPal'],
+  ['square', 'Square'],
+  ['shopping_cart_or_funnel', 'A shopping cart or funnel'],
+  ['another_processor', 'Another processor'],
+] as const;
+
+// Country and industry options, loaded once and shared by every copy of the form.
+// EPD answers { data: [{ id, name }] }.
+type ListOption = { id: number; name: string };
+const lists: Record<string, Promise<ListOption[]> | undefined> = {};
+function loadList(key: 'countries' | 'industryTypes'): Promise<ListOption[]> {
+  lists[key] ??= fetch(`${EPD_API_BASE}/emap/lists/${key}`)
+    .then((res) => {
+      if (!res.ok) throw new Error('List request failed');
+      return res.json();
+    })
+    .then((data: { data?: ListOption[] } | null) => data?.data ?? [])
+    .catch((err) => {
+      delete lists[key];
+      throw err;
+    });
+  return lists[key];
+}
 
 // EPD sends the visitor to its own pages only. Anything else in redirectUrl (a
 // non-https scheme, another domain, credentials in the URL) is not followed.
@@ -63,10 +104,7 @@ function safeRedirect(url: string): string | null {
 // hangs, and is long enough not to cut off a slow one that would succeed.
 const TIMEOUT_MS = 60_000;
 
-// On timeout the signup may still have gone through and emailed a code, and
-// submitting again cancels that code. Say so, rather than only "try again".
-const TIMEOUT_MESSAGE =
-  'This is taking longer than expected. Check your inbox: if a code arrived, your signup went through. If not, please try again.';
+const TIMEOUT_MESSAGE = 'This is taking longer than expected. Please try again.';
 
 // field_errors can lead with a property that is not one of the inputs (an
 // unrecognized key), so prefer the first error on a real form field.
@@ -133,6 +171,25 @@ export function EpdSignupForm() {
   const [error, setError] = useState('');
   const [invalidField, setInvalidField] = useState<string | undefined>();
   const [submitting, setSubmitting] = useState(false);
+  const [countries, setCountries] = useState<ListOption[]>([]);
+  const [industries, setIndustries] = useState<ListOption[]>([]);
+  const [industry, setIndustry] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([loadList('countries'), loadList('industryTypes')])
+      .then(([countryList, industryList]) => {
+        if (!active) return;
+        setCountries(countryList);
+        setIndustries(industryList);
+      })
+      .catch(() => {
+        if (active) setError('Could not load the form. Please refresh the page.');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Back button after the redirect restores this page from the browser's cache
   // with the button still disabled. Turn it back on.
@@ -163,8 +220,8 @@ export function EpdSignupForm() {
     // Honeypot tripped. Act like it worked and send nothing. Only when the field
     // is really hidden: a page that blocks inline styles shows it, and a person
     // who fills it in must not be dropped.
-    const honeypot = form.elements.namedItem('website') as HTMLInputElement | null;
-    if (text(formData, 'website') && isHidden(honeypot?.parentElement)) return;
+    const honeypot = form.elements.namedItem('homepage') as HTMLInputElement | null;
+    if (text(formData, 'homepage') && isHidden(honeypot?.parentElement)) return;
 
     if (!form.checkValidity()) {
       form.reportValidity();
@@ -174,12 +231,20 @@ export function EpdSignupForm() {
     // Build the body from named fields only. Never spread the whole FormData:
     // hidden inputs the host page already had would leak in as unrecognized
     // keys and the API would reject the request.
-    const body: Record<string, string | Record<string, string>> = {
+    const body: Record<string, string | number | Record<string, string>> = {
       firstName: text(formData, 'firstName'),
       lastName: text(formData, 'lastName'),
       companyName: text(formData, 'companyName'),
       email: text(formData, 'email'),
+      country: Number(text(formData, 'country')),
+      industry: Number(text(formData, 'industry')),
+      estimatedYearlySales: Number(text(formData, 'estimatedYearlySales')),
+      website: text(formData, 'website'),
+      cardPaymentMethod: text(formData, 'cardPaymentMethod'),
     };
+    if (text(formData, 'industry') === INDUSTRY_OTHER) {
+      body.industryOther = text(formData, 'industryOther');
+    }
 
     if (PARTNER_KEY.trim()) body.partnerKey = PARTNER_KEY.trim();
 
@@ -254,8 +319,8 @@ export function EpdSignupForm() {
         return;
       }
 
-      // Works for both branches: a new lead goes to the OTP step, an existing
-      // account goes to login. Do not tell the visitor which one happened
+      // Works for both branches: a new lead goes to EPD's signup page with these
+      // answers filled in, an existing account goes to login. Do not tell the visitor which one happened
       // (data.alreadyRegistered): that would reveal whether an email has an account.
       window.location.href = target;
       // submitting stays true on purpose while the browser navigates away.
@@ -326,10 +391,109 @@ export function EpdSignupForm() {
         />
       </div>
 
+      {/* Options are loaded from EPD when the form mounts. */}
+      <div>
+        <label htmlFor={`${id}-country`}>Country</label>
+        <select
+          id={`${id}-country`}
+          name="country"
+          required
+          defaultValue=""
+          aria-invalid={invalidField === 'country' || undefined}
+        >
+          <option value="">Select...</option>
+          {countries.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label htmlFor={`${id}-industry`}>Industry</label>
+        <select
+          id={`${id}-industry`}
+          name="industry"
+          required
+          value={industry}
+          onChange={(event) => setIndustry(event.target.value)}
+          aria-invalid={invalidField === 'industry' || undefined}
+        >
+          <option value="">Select...</option>
+          {industries.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Asked, and sent, only for the "Other" industry. */}
+      {industry === INDUSTRY_OTHER && (
+        <div>
+          <label htmlFor={`${id}-industry-other`}>Specify your industry</label>
+          <input
+            id={`${id}-industry-other`}
+            name="industryOther"
+            type="text"
+            required
+            maxLength={255}
+            aria-invalid={invalidField === 'industryOther' || undefined}
+          />
+        </div>
+      )}
+
+      <div>
+        <label htmlFor={`${id}-yearly-sales`}>Estimated yearly sales (USD)</label>
+        <input
+          id={`${id}-yearly-sales`}
+          name="estimatedYearlySales"
+          type="number"
+          inputMode="decimal"
+          min={1}
+          step="any"
+          required
+          aria-invalid={invalidField === 'estimatedYearlySales' || undefined}
+        />
+      </div>
+
+      <div>
+        <label htmlFor={`${id}-website`}>Company website</label>
+        <input
+          id={`${id}-website`}
+          name="website"
+          type="text"
+          inputMode="url"
+          autoComplete="url"
+          placeholder="example.com"
+          required
+          aria-invalid={invalidField === 'website' || undefined}
+        />
+      </div>
+
+      <div>
+        <label htmlFor={`${id}-card-payments`}>How are you currently accepting card payments?</label>
+        <select
+          id={`${id}-card-payments`}
+          name="cardPaymentMethod"
+          required
+          defaultValue=""
+          aria-invalid={invalidField === 'cardPaymentMethod' || undefined}
+        >
+          <option value="">Select...</option>
+          {CARD_PAYMENT_METHODS.map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {/* Honeypot. Hidden from people, filled by bots. Do not remove. */}
       <div aria-hidden="true" style={honeypotStyle}>
-        <label htmlFor={`${id}-website`}>Website</label>
-        <input id={`${id}-website`} name="website" type="text" tabIndex={-1} autoComplete="off" />
+        <label htmlFor={`${id}-homepage`}>Homepage</label>
+        <input id={`${id}-homepage`} name="homepage" type="text" tabIndex={-1} autoComplete="off" />
       </div>
 
       <button type="submit" disabled={submitting}>

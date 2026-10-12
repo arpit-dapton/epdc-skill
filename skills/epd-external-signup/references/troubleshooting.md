@@ -26,10 +26,13 @@ Check the browser console and network tab first.
 | A click ID (`gclid`, `gbraid`, `wbraid`, `fbclid`) sent as a top-level field | The API has no such field and returns 400 for the whole request, so any ad-click visitor fails. Click IDs go inside `utmParams`: `{ "gclid": "..." }` |
 | A `utm*` or click-ID (`gclid`, `gbraid`, `wbraid`, `fbclid`) value over 100 chars | The templates truncate to 100. Do not remove that |
 | A name with a letter outside Western European Latin (`Ł`, `ř`, `ễ`, non-Latin scripts) | The server only accepts `A-Z`, `a-z`, and `À`-`ÿ`. The form shows its "can only contain letters..." message on the field. Nothing to fix in the form. See "Known gaps" in `api.md` |
+| `country`, `industry` or `estimatedYearlySales` sent as a string | They must be JSON numbers. The templates convert them with `Number(...)` |
+| `industryOther` missing while `industry` is `53` ("Other") | Required for that industry only. The templates show and send it only then |
+| `website` rejected | Must be a bare host (`example.com`) or a full URL. A value with spaces or no dot fails |
 | Company name under 3 chars | `companyName` has a 3-character minimum. "3M" is rejected. Known gap, see `api.md` |
 
 Read the actual message from the response body rather than guessing: look in
-`error.field_errors[]` for the entry whose `field` is one of the four inputs and
+`error.field_errors[]` for the entry whose `field` is one of the inputs and
 read its `message`. `error.message` summarises every failure. See "Response 400"
 in `api.md`.
 
@@ -72,19 +75,18 @@ EPD reflects the calling origin, so this should not happen. If it does:
   error rather than a 404, because the failure happens before the response.
 - If it persists, switch to `assets/route.ts`. A server-to-server call has no CORS.
 
-## Redirected to EPD but the name and company are blank
+## Country and industry dropdowns are empty
 
-EPD's `/auth` page fetches those itself after the redirect. You do not pass them.
-If they are blank, the lead was not saved, or the prefill lookup failed on EPD's
-side. Report it to the backend team with the email address used.
+The form loads them from `EPD_API_BASE` + `/emap/lists/countries` and
+`/emap/lists/industryTypes` when it appears, and shows "Could not load the form"
+if that fails. Check `EPD_API_BASE` and the browser's network tab.
 
-## OTP email never arrives
+## Redirected to EPD but only the email is filled in
 
-- Check whether the response had `alreadyRegistered: true`. That branch sends no
-  OTP by design and redirects to login instead. (Do not tell the visitor this:
-  it reveals which emails have accounts.)
-- Otherwise it is an EPD-side delivery issue. The POST succeeding means the lead
-  was saved.
+EPD's `/auth/signup` page loads the answers itself, using the `prefill` code in
+`redirectUrl`. You do not pass them. They are missing when `redirectUrl` had no
+`prefill` (EPD could not store them), or more than 24 hours passed. The visitor
+can still fill the form in. Report it to the backend team with the email used.
 
 ## Signups are not credited to the partner
 
@@ -98,8 +100,8 @@ side. Report it to the backend team with the email address used.
   the browser. Put the key in `PARTNER_KEY` as a string.
 - The key was typed with a mistake. The form does not report it: the signup still
   succeeds, but nobody is credited. Copy it from the portal again.
-- The visitor stopped at the OTP step. A signup is only credited once the visitor
-  enters the OTP and sets a password.
+- The visitor stopped on EPD's signup page. A signup is only credited once the
+  visitor accepts the Terms and clicks **Create account** there.
 
 ## Everything works in dev, nothing works in production
 
