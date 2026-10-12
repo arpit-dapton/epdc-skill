@@ -1,6 +1,6 @@
 # EPD Commerce
 
-This skill is for partners who want to earn commission by referring merchants to Easy Pay Direct. Give it to your AI coding assistant and it builds a merchant signup form (first name, last name, company, email) for a page you control - a blog, partner landing page, or marketing microsite - that you embed in whichever of three ways fits your site (full form, redirect handoff, or email-based signup). Every merchant who signs up through your form is attributed to you via your partner key, so the signups you drive earn you a monthly residual commission for the lifetime of their account.
+This skill is for partners who want to earn commission by referring merchants to Easy Pay Direct. Give it to your AI coding assistant and it builds a merchant signup form (name, company, email, country, industry, yearly sales, website, and how they take card payments today) for a page you control - a blog, partner landing page, or marketing microsite - that you embed in whichever of three ways fits your site (full form, redirect handoff, or email-based signup). Every merchant who signs up through your form is attributed to you via your partner key, so the signups you drive earn you a monthly residual commission for the lifetime of their account.
 
 ## Installation
 

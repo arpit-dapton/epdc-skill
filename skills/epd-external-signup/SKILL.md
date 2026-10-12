@@ -1,14 +1,15 @@
 ---
 name: epd-external-signup
-description: Generate a first-touch signup form (first name, last name, company, email) for an external site that posts to EPD's public signup API and redirects the visitor to EPD to finish with email OTP and password. Use when someone asks for an EPD signup form, EPD lead capture, a partner referral signup page, or wants to collect signups for EPD on their own domain.
+description: Generate a first-touch signup form (name, company, email, country, industry, yearly sales, website, card payment method) for an external site that posts to EPD's public signup API and redirects the visitor to EPD's signup page, filled in with those answers, to accept the Terms and create the account. Use when someone asks for an EPD signup form, EPD lead capture, a partner referral signup page, or wants to collect signups for EPD on their own domain.
 license: MIT
 ---
 
 # EPD External Signup
 
 Generates a signup form that lives on the user's own domain. The form creates a lead
-in EPD, then sends the visitor to EPD to finish account creation with email OTP and
-a password.
+in EPD, then sends the visitor to EPD's signup page, which opens with the same
+answers filled in. The visitor accepts the Terms there and creates the account.
+Do not add a Terms checkbox to the form.
 
 Use this when the user wants a signup form on **their** site, not an embed of EPD's.
 
@@ -133,7 +134,8 @@ Change only these things:
 In React, restyle `form.tsx`; do not rebuild it with react-hook-form or the project's
 design-system form components unless the user asks for that.
 
-Do not change field names, `minlength`, `maxlength`, the honeypot field, the
+Do not change field names, `minlength`, `maxlength`, the select option values, the
+country and industry list loading, the honeypot field, the
 form's `method="post"`, or the UTM block. Those match server-side validation and
 attribution. Changing them causes 400s or lost attribution.
 
@@ -184,8 +186,16 @@ to satisfy it: go through the list below by hand instead.
 
 If you cannot run commands, or the form was rebuilt, check these yourself instead:
 
-- Inputs are named exactly `firstName`, `lastName`, `companyName`, `email`, and each has a label
-- The honeypot input `name="website"` is still there
+- Inputs are named exactly `firstName`, `lastName`, `companyName`, `email`,
+  `country`, `industry`, `industryOther`, `estimatedYearlySales`, `website`,
+  `cardPaymentMethod`, and each has a label
+- `country` and `industry` options come from `EPD_API_BASE` + `/emap/lists/countries`
+  and `/emap/lists/industryTypes`, and are sent as numbers (the `id`), as is
+  `estimatedYearlySales`
+- `industryOther` is required and sent only when `industry` is `53`
+- `cardPaymentMethod` options are exactly `not_accepting_yet`, `stripe`, `paypal`,
+  `square`, `shopping_cart_or_funnel`, `another_processor`
+- The honeypot input `name="homepage"` is still there
 - The request body is built from named fields, never by spreading `FormData` or
   the form library's values, so the honeypot value is never sent
 - All five `utm_*` params and the four click IDs (`gclid`, `gbraid`, `wbraid`,

@@ -11,7 +11,18 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
-const REQUIRED_FIELDS = ['firstName', 'lastName', 'companyName', 'email'];
+const REQUIRED_FIELDS = [
+  'firstName',
+  'lastName',
+  'companyName',
+  'email',
+  'country',
+  'industry',
+  'industryOther',
+  'estimatedYearlySales',
+  'website',
+  'cardPaymentMethod',
+];
 
 const ROUTE_PATHS = [
   'app/api/epd-signup/route.ts',
@@ -147,7 +158,7 @@ const checks = [
   {
     name: 'honeypot field present',
     applies: (src) => /<form/i.test(src),
-    run: (src) => (/name=["']website["']/.test(src) ? null : 'honeypot field was removed'),
+    run: (src) => (/name=["']homepage["']/.test(src) ? null : 'honeypot field was removed'),
   },
   {
     name: 'no raw FormData spread into the request body',
